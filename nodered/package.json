@@ -1,0 +1,11 @@
+{
+    "name": "node-red-project",
+    "description": "A Node-RED Project",
+    "version": "0.0.1",
+    "private": true,
+    "dependencies": {
+        "node-red-contrib-modbus": "^5.45.2",
+        "node-red-contrib-opcua": "^0.2.351",
+        "node-red-node-mysql": "^3.0.0"
+    }
+}
