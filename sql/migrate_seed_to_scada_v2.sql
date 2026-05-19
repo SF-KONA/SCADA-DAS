@@ -21,16 +21,23 @@ SELECT * FROM scada_db.processes;
 
 -- ────────────────────────────────────────────
 -- 2. equipments — FURN 3대 유지, 나머지 15대 추가
+--
+--    ※ SELECT * 미사용: 아래 2-1에서 OEE 컬럼(ideal_cycle_time,
+--      planned_daily_hours) 추가 후 재실행 시 컬럼 수 불일치 회피
+--    ※ INSERT IGNORE + PK(equipment_id) 조합으로 멱등성 보장
 -- ────────────────────────────────────────────
 INSERT IGNORE INTO equipments
-SELECT * FROM scada_db.equipments;
+  (equipment_id, equipment_name, step_no, total_running_hours, unit_no)
+SELECT
+  equipment_id, equipment_name, step_no, total_running_hours, unit_no
+FROM scada_db.equipments;
 
 -- ────────────────────────────────────────────
 -- 2-1. equipments — OEE 계산용 컬럼 추가
 --     ideal_cycle_time   : 이상 사이클 시간 (초) — 성능률 계산
 --     planned_daily_hours: 계획 가동 시간 (시간/일) — 가용률 계산
 --
---     ※ INSERT IGNORE SELECT * 이후에 추가해야 컬럼 수 불일치 회피
+--     ※ 위 INSERT는 컬럼명을 명시하므로 컬럼 수 불일치 없음
 --     ※ 멱등 실행을 위해 information_schema로 존재 여부 확인
 -- ────────────────────────────────────────────
 DROP PROCEDURE IF EXISTS _add_oee_cols;
@@ -62,11 +69,26 @@ DELIMITER ;
 CALL _add_oee_cols();
 DROP PROCEDURE _add_oee_cols;
 
--- FURN_01/02/03 기준값 설정 (이상 사이클 120초, 계획 가동 8시간/일)
-UPDATE equipments
-   SET ideal_cycle_time = 120,
-       planned_daily_hours = 8.0
- WHERE equipment_id IN ('FURN_01', 'FURN_02', 'FURN_03');
+-- 설비 그룹별 OEE 기준값 설정 (이상 사이클 / 계획 가동 8시간/일)
+--   FURN(산화) 120s, PECVD(박막증착) 90s, ETCH(식각) 75s,
+--   TRACK(포토) 60s, SPTT(배선) 120s, PROBE(검사) 30s
+UPDATE equipments SET ideal_cycle_time = 120, planned_daily_hours = 8.0
+ WHERE equipment_id IN ('FURN_01',  'FURN_02',  'FURN_03');
+
+UPDATE equipments SET ideal_cycle_time =  90, planned_daily_hours = 8.0
+ WHERE equipment_id IN ('PECVD_01', 'PECVD_02', 'PECVD_03');
+
+UPDATE equipments SET ideal_cycle_time =  75, planned_daily_hours = 8.0
+ WHERE equipment_id IN ('ETCH_01',  'ETCH_02',  'ETCH_03');
+
+UPDATE equipments SET ideal_cycle_time =  60, planned_daily_hours = 8.0
+ WHERE equipment_id IN ('TRACK_01', 'TRACK_02', 'TRACK_03');
+
+UPDATE equipments SET ideal_cycle_time = 120, planned_daily_hours = 8.0
+ WHERE equipment_id IN ('SPTT_01',  'SPTT_02',  'SPTT_03');
+
+UPDATE equipments SET ideal_cycle_time =  30, planned_daily_hours = 8.0
+ WHERE equipment_id IN ('PROBE_01', 'PROBE_02', 'PROBE_03');
 
 -- ────────────────────────────────────────────
 -- 3. equipment_parameters — 핵심 교체
@@ -167,11 +189,12 @@ UNION ALL SELECT 'oee_metrics', COUNT(*) FROM oee_metrics;
 SELECT '=== FURN_01 tag_code 확인 ===' AS '';
 SELECT tag_code FROM equipment_parameters WHERE tag_code LIKE 'FURN_01%';
 
--- OEE 컬럼 확인 (FURN_01/02/03 ideal_cycle_time, planned_daily_hours)
-SELECT '=== FURN OEE 기준값 확인 ===' AS '';
+-- OEE 컬럼 확인 (18대 전체 ideal_cycle_time, planned_daily_hours)
+SELECT '=== 설비 OEE 기준값 확인 (18대) ===' AS '';
 SELECT equipment_id, ideal_cycle_time, planned_daily_hours
   FROM equipments
- WHERE equipment_id IN ('FURN_01', 'FURN_02', 'FURN_03');
+ WHERE equipment_id REGEXP '^(FURN|PECVD|ETCH|TRACK|SPTT|PROBE)_0[123]$'
+ ORDER BY equipment_id;
 
 -- OEE 태그 등록 확인 (18대 × 4태그 = 72건 목표)
 SELECT '=== OEE 태그 등록 수 확인 (설비별) ===' AS '';
