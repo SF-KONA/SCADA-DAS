@@ -83,7 +83,8 @@ def initial_furn():
     return {
         "TEMP": 1000.0, "PRESS": 5.0, "O2_FLOW": 1250.0, "N2_FLOW": 600.0,
         "TIME": 0, "OX_THICK": 1250.0, "STATUS": 1, "ALARM": 0,
-        "CYCLE_TIME": 60, "PROD_COUNT": 0, "NG_COUNT": 0,
+        "CYCLE_TIME": 60, "PROD_COUNT": 0, "NG_COUNT": 0, "OK_COUNT": 0,
+        "IDEAL_CYCLE_TIME": 120,
         "_cycle_elapsed": 0,
     }
 
@@ -92,7 +93,8 @@ def initial_pecvd():
         "TEMP": 375.0, "PRESS": 2.5, "RF_PWR": 300.0,
         "SIH4_FLOW": 300.0, "N2O_FLOW": 600.0,
         "DEP_THICK": 1750.0, "STATUS": 1, "ALARM": 0,
-        "CYCLE_TIME": 90, "PROD_COUNT": 0, "NG_COUNT": 0,
+        "CYCLE_TIME": 90, "PROD_COUNT": 0, "NG_COUNT": 0, "OK_COUNT": 0,
+        "IDEAL_CYCLE_TIME": 90,
         "_cycle_elapsed": 0,
     }
 
@@ -101,7 +103,8 @@ def initial_etch():
         "PRESS": 25.0, "RF_PWR": 500.0, "CF4_FLOW": 60.0,
         "O2_FLOW": 17.0, "TEMP": 50.0, "ETCH_DEP": 900.0,
         "STATUS": 1, "ALARM": 0,
-        "CYCLE_TIME": 75, "PROD_COUNT": 0, "NG_COUNT": 0,
+        "CYCLE_TIME": 75, "PROD_COUNT": 0, "NG_COUNT": 0, "OK_COUNT": 0,
+        "IDEAL_CYCLE_TIME": 75,
         "_cycle_elapsed": 0,
     }
 
@@ -145,6 +148,8 @@ def _advance_cycle(state, lot_targets):
         state["PROD_COUNT"] += 1
         if random.random() < NG_PROB:
             state["NG_COUNT"] += 1
+        elif "OK_COUNT" in state:
+            state["OK_COUNT"] += 1
         for tag, (lo, hi) in lot_targets.items():
             state[tag] = random.uniform(lo, hi)
         state["_cycle_elapsed"] = 0
@@ -179,6 +184,7 @@ FURN_FAST_LAYOUT = [("STATUS", 1), ("ALARM", 1), ("TIME", 1)]
 FURN_SLOW_LAYOUT = [
     ("TEMP", 10), ("PRESS", 100), ("O2_FLOW", 1), ("N2_FLOW", 1),
     ("OX_THICK", 1), ("CYCLE_TIME", 1), ("PROD_COUNT", 1), ("NG_COUNT", 1),
+    ("OK_COUNT", 1), ("IDEAL_CYCLE_TIME", 1),
 ]
 FURN_REG_BASES = {"FURN_01": 0, "FURN_02": 20, "FURN_03": 40}
 
@@ -211,10 +217,12 @@ class ModbusEquipSim:
 # ─── OPC UA (:4840) ───
 PECVD_FAST_TAGS = ("STATUS", "ALARM")
 PECVD_SLOW_TAGS = ("TEMP", "PRESS", "RF_PWR", "SIH4_FLOW", "N2O_FLOW",
-                   "DEP_THICK", "CYCLE_TIME", "PROD_COUNT", "NG_COUNT")
+                   "DEP_THICK", "CYCLE_TIME", "PROD_COUNT", "NG_COUNT",
+                   "OK_COUNT", "IDEAL_CYCLE_TIME")
 ETCH_FAST_TAGS  = ("STATUS", "ALARM")
 ETCH_SLOW_TAGS  = ("PRESS", "RF_PWR", "CF4_FLOW", "O2_FLOW", "TEMP",
-                   "ETCH_DEP", "CYCLE_TIME", "PROD_COUNT", "NG_COUNT")
+                   "ETCH_DEP", "CYCLE_TIME", "PROD_COUNT", "NG_COUNT",
+                   "OK_COUNT", "IDEAL_CYCLE_TIME")
 
 class OPCUASim:
     def __init__(self):
@@ -296,6 +304,8 @@ MQTT_SPECS = {
     },
 }
 
+MQTT_IDEAL_CYCLE = {"TRACK": 60, "SPTT": 120, "PROBE": 30}
+
 class MQTTEquipment:
     def __init__(self, code, num):
         self.code = code
@@ -306,6 +316,8 @@ class MQTTEquipment:
         self.alarm = 0
         self.prod_count = random.randint(100, 5000)
         self.ng_count = random.randint(0, 50)
+        self.ok_count = self.prod_count - self.ng_count
+        self.ideal_cycle_time = MQTT_IDEAL_CYCLE[code]
 
     def _gen_value(self, tag, severity):
         s = self.spec[tag]
@@ -345,11 +357,15 @@ class MQTTEquipment:
 
         if random.random() < 0.2:
             self.prod_count += 1
-            if severity == "ERR" or random.random() < 0.02:
+            if severity == "ERR" or random.random() < NG_PROB:
                 self.ng_count += 1
+            else:
+                self.ok_count += 1
         payload[f"{eid}_CYCLE_TIME"] = random.randint(30, 300)
         payload[f"{eid}_PROD_COUNT"] = self.prod_count
         payload[f"{eid}_NG_COUNT"] = self.ng_count
+        payload[f"{eid}_OK_COUNT"] = self.ok_count
+        payload[f"{eid}_IDEAL_CYCLE_TIME"] = self.ideal_cycle_time
         return payload
 
 MQTT_EQUIPMENTS = [MQTTEquipment(code, num)
@@ -584,27 +600,27 @@ async def loop_print():
         for eid, s in FURNS.items():
             m = "🟢" if s["STATUS"] == 1 else "🔴"
             print(f"    {m} {eid}  TEMP={s['TEMP']:7.1f}°C  PRESS={s['PRESS']:5.2f}T  "
-                  f"PROD={s['PROD_COUNT']:3d}  NG={s['NG_COUNT']}")
+                  f"PROD={s['PROD_COUNT']:3d}  OK={s['OK_COUNT']:3d}  NG={s['NG_COUNT']}")
 
         # 설비 — OPC UA (PECVD/ETCH)
         print("  📡 OPC UA :4840 (박막증착)")
         for eid, s in PECVDS.items():
             m = "🟢" if s["STATUS"] == 1 else "🔴"
             print(f"    {m} {eid}  TEMP={s['TEMP']:6.1f}°C  RF={s['RF_PWR']:5.1f}W  "
-                  f"PROD={s['PROD_COUNT']:3d}  NG={s['NG_COUNT']}")
+                  f"PROD={s['PROD_COUNT']:3d}  OK={s['OK_COUNT']:3d}  NG={s['NG_COUNT']}")
 
         print("  📡 OPC UA :4840 (식각공정)")
         for eid, s in ETCHES.items():
             m = "🟢" if s["STATUS"] == 1 else "🔴"
             print(f"    {m} {eid}  PRESS={s['PRESS']:5.1f}mT  RF={s['RF_PWR']:5.1f}W  "
-                  f"PROD={s['PROD_COUNT']:3d}  NG={s['NG_COUNT']}")
+                  f"PROD={s['PROD_COUNT']:3d}  OK={s['OK_COUNT']:3d}  NG={s['NG_COUNT']}")
 
         # MQTT
         print("  📡 MQTT :1883 (포토/배선/검사)")
         for eq in MQTT_EQUIPMENTS:
             m = "🟢" if eq.status == 1 else "🔴"
             print(f"    {m} {eq.equipment_id}  "
-                  f"PROD={eq.prod_count:5d}  NG={eq.ng_count:3d}")
+                  f"PROD={eq.prod_count:5d}  OK={eq.ok_count:5d}  NG={eq.ng_count:3d}")
 
         # 환경 센서
         print("  📡 Modbus :5021 (환경 BMS)")

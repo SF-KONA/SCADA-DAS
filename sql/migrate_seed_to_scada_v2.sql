@@ -26,6 +26,49 @@ INSERT IGNORE INTO equipments
 SELECT * FROM scada_db.equipments;
 
 -- ────────────────────────────────────────────
+-- 2-1. equipments — OEE 계산용 컬럼 추가
+--     ideal_cycle_time   : 이상 사이클 시간 (초) — 성능률 계산
+--     planned_daily_hours: 계획 가동 시간 (시간/일) — 가용률 계산
+--
+--     ※ INSERT IGNORE SELECT * 이후에 추가해야 컬럼 수 불일치 회피
+--     ※ 멱등 실행을 위해 information_schema로 존재 여부 확인
+-- ────────────────────────────────────────────
+DROP PROCEDURE IF EXISTS _add_oee_cols;
+DELIMITER //
+CREATE PROCEDURE _add_oee_cols()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = 'scada' AND TABLE_NAME = 'equipments'
+      AND COLUMN_NAME = 'ideal_cycle_time'
+  ) THEN
+    ALTER TABLE equipments
+      ADD COLUMN ideal_cycle_time FLOAT DEFAULT NULL
+      COMMENT 'OEE 이상 사이클 시간 (초)';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = 'scada' AND TABLE_NAME = 'equipments'
+      AND COLUMN_NAME = 'planned_daily_hours'
+  ) THEN
+    ALTER TABLE equipments
+      ADD COLUMN planned_daily_hours FLOAT DEFAULT NULL
+      COMMENT 'OEE 계획 가동 시간 (시간/일)';
+  END IF;
+END //
+DELIMITER ;
+
+CALL _add_oee_cols();
+DROP PROCEDURE _add_oee_cols;
+
+-- FURN_01/02/03 기준값 설정 (이상 사이클 120초, 계획 가동 8시간/일)
+UPDATE equipments
+   SET ideal_cycle_time = 120,
+       planned_daily_hours = 8.0
+ WHERE equipment_id IN ('FURN_01', 'FURN_02', 'FURN_03');
+
+-- ────────────────────────────────────────────
 -- 3. equipment_parameters — 핵심 교체
 --    기존 9개 (PRESSURE 등 불일치) 삭제 → scada_db 198개로 교체
 --    ⚠️ 기존 equipment_measurements 9개도 삭제 (param_id 꼬임 방지)
@@ -45,6 +88,39 @@ SELECT
   collection_period, data_type, param_category, is_controllable
 FROM scada_db.equipment_parameters
 ORDER BY param_id;
+
+-- ────────────────────────────────────────────
+-- 3-1. OEE 계산용 태그 일괄 등록 (18대 × 4태그 = 72 row)
+--     PROD_COUNT, NG_COUNT, OK_COUNT, IDEAL_CYCLE_TIME
+--
+--     ※ 기존 scada_db.equipment_parameters에 일부 등록되어 있을 수 있으나
+--       INSERT IGNORE + UNIQUE(tag_code) 조합으로 중복 등록 회피
+--     ※ FURN(3) + PECVD(3) + ETCH(3) + TRACK(3) + SPTT(3) + PROBE(3) = 18대
+-- ────────────────────────────────────────────
+INSERT IGNORE INTO equipment_parameters
+  (equipment_id, tag_code, tag_name, unit,
+   collection_period, data_type, param_category, is_controllable)
+SELECT
+  e.equipment_id,
+  CONCAT(e.equipment_id, '_', t.tag_suffix) AS tag_code,
+  t.tag_name,
+  t.unit,
+  '5s', 'INT', t.category, FALSE
+FROM (
+  SELECT 'FURN_01' AS equipment_id UNION ALL
+  SELECT 'FURN_02'  UNION ALL SELECT 'FURN_03'  UNION ALL
+  SELECT 'PECVD_01' UNION ALL SELECT 'PECVD_02' UNION ALL SELECT 'PECVD_03' UNION ALL
+  SELECT 'ETCH_01'  UNION ALL SELECT 'ETCH_02'  UNION ALL SELECT 'ETCH_03'  UNION ALL
+  SELECT 'TRACK_01' UNION ALL SELECT 'TRACK_02' UNION ALL SELECT 'TRACK_03' UNION ALL
+  SELECT 'SPTT_01'  UNION ALL SELECT 'SPTT_02'  UNION ALL SELECT 'SPTT_03'  UNION ALL
+  SELECT 'PROBE_01' UNION ALL SELECT 'PROBE_02' UNION ALL SELECT 'PROBE_03'
+) e
+CROSS JOIN (
+  SELECT 'PROD_COUNT'       AS tag_suffix, '생산 누계'      AS tag_name, 'count' AS unit, 'PROD'     AS category UNION ALL
+  SELECT 'NG_COUNT',                       '불량 누계',                  'count',         'PROD'              UNION ALL
+  SELECT 'OK_COUNT',                       '양품 누계',                  'count',         'PROD'              UNION ALL
+  SELECT 'IDEAL_CYCLE_TIME',               '이상 사이클타임',            's',             'SETPOINT'
+) t;
 
 -- ────────────────────────────────────────────
 -- 4. environment_sensors — 신규 삽입 (기존 0건)
@@ -90,3 +166,17 @@ UNION ALL SELECT 'oee_metrics', COUNT(*) FROM oee_metrics;
 -- tag_code 샘플 (PRESSURE → PRESS 교체 확인)
 SELECT '=== FURN_01 tag_code 확인 ===' AS '';
 SELECT tag_code FROM equipment_parameters WHERE tag_code LIKE 'FURN_01%';
+
+-- OEE 컬럼 확인 (FURN_01/02/03 ideal_cycle_time, planned_daily_hours)
+SELECT '=== FURN OEE 기준값 확인 ===' AS '';
+SELECT equipment_id, ideal_cycle_time, planned_daily_hours
+  FROM equipments
+ WHERE equipment_id IN ('FURN_01', 'FURN_02', 'FURN_03');
+
+-- OEE 태그 등록 확인 (18대 × 4태그 = 72건 목표)
+SELECT '=== OEE 태그 등록 수 확인 (설비별) ===' AS '';
+SELECT equipment_id, COUNT(*) AS oee_tag_cnt
+  FROM equipment_parameters
+ WHERE tag_code REGEXP '_(PROD_COUNT|NG_COUNT|OK_COUNT|IDEAL_CYCLE_TIME)$'
+ GROUP BY equipment_id
+ ORDER BY equipment_id;
