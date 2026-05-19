@@ -797,7 +797,7 @@
     {
         "id": "0691c559df7ee0fb",
         "type": "MySQLdatabase",
-        "name": "scada_db",
+        "name": "scada",
         "host": "127.0.0.1",
         "port": "3306",
         "db": "scada",
@@ -868,10 +868,10 @@
     {
         "id": "c883cb9888ea7986",
         "type": "MySQLdatabase",
-        "name": "scada_db",
+        "name": "scada",
         "host": "127.0.0.1",
         "port": "3306",
-        "db": "scada_db",
+        "db": "scada",
         "tz": "+09:00",
         "charset": "UTF8MB4"
     },
@@ -982,10 +982,10 @@
     {
         "id": "504c12b290a79af0",
         "type": "MySQLdatabase",
-        "name": "scada_db",
+        "name": "scada",
         "host": "127.0.0.1",
         "port": "3306",
-        "db": "scada_db",
+        "db": "scada",
         "tz": "+09:00",
         "charset": "UTF8MB4"
     },
@@ -1096,10 +1096,10 @@
     {
         "id": "6f91062112df3381",
         "type": "MySQLdatabase",
-        "name": "scada_db",
+        "name": "scada",
         "host": "127.0.0.1",
         "port": "3306",
-        "db": "scada_db",
+        "db": "scada",
         "tz": "+09:00",
         "charset": "UTF8MB4"
     },
@@ -1351,7 +1351,7 @@
         "z": "603b2361fb225c81",
         "g": "a389f47891a212dc",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db",
+        "name": "MySQL: scada",
         "x": 230,
         "y": 360,
         "wires": [
@@ -1456,7 +1456,7 @@
         "z": "603b2361fb225c81",
         "g": "4ef2729684e38e81",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db",
+        "name": "MySQL: scada",
         "x": 250,
         "y": 580,
         "wires": [
@@ -1586,7 +1586,7 @@
         "z": "603b2361fb225c81",
         "g": "7f5197bab9f9b46f",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db (INSERT)",
+        "name": "MySQL: scada (INSERT)",
         "x": 500,
         "y": 980,
         "wires": [
@@ -1955,7 +1955,7 @@
         "z": "603b2361fb225c81",
         "g": "c4f20914f2df7faa",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db (INSERT)",
+        "name": "MySQL: scada (INSERT)",
         "x": 480,
         "y": 1900,
         "wires": [
@@ -2165,7 +2165,7 @@
         "z": "603b2361fb225c81",
         "g": "1689e465b5dfdea7",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db (INSERT)",
+        "name": "MySQL: scada (INSERT)",
         "x": 480,
         "y": 1620,
         "wires": [
@@ -2281,7 +2281,7 @@
         "type": "mysql",
         "z": "603b2361fb225c81",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db (INSERT)",
+        "name": "MySQL: scada (INSERT)",
         "x": 2100,
         "y": 1160,
         "wires": [
@@ -2642,7 +2642,7 @@
         "z": "603b2361fb225c81",
         "g": "bf42e733204addee",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db (INSERT)",
+        "name": "MySQL: scada (INSERT)",
         "x": 540,
         "y": 1200,
         "wires": [
@@ -2820,7 +2820,7 @@
         "z": "411f6283ebc37f8b",
         "g": "65b7d96b429581a5",
         "mydb": "504c12b290a79af0",
-        "name": "MySQL: scada_db",
+        "name": "MySQL: scada",
         "x": 610,
         "y": 240,
         "wires": [
@@ -2932,7 +2932,7 @@
         "z": "411f6283ebc37f8b",
         "g": "65b7d96b429581a5",
         "mydb": "504c12b290a79af0",
-        "name": "MySQL: scada_db",
+        "name": "MySQL: scada",
         "x": 610,
         "y": 320,
         "wires": [
@@ -4359,7 +4359,7 @@
         "z": "9d66fcf97cf7ade5",
         "g": "882e8bdef3050128",
         "mydb": "6f91062112df3381",
-        "name": "MySQL: scada_db",
+        "name": "MySQL: scada",
         "x": 550,
         "y": 170,
         "wires": [
@@ -4466,7 +4466,7 @@
         "z": "9d66fcf97cf7ade5",
         "g": "882e8bdef3050128",
         "mydb": "6f91062112df3381",
-        "name": "MySQL: scada_db",
+        "name": "MySQL: scada",
         "x": 550,
         "y": 250,
         "wires": [
@@ -5913,7 +5913,7 @@
         "z": "neat_tab_main_v3",
         "g": "655988f14ac449df",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db",
+        "name": "MySQL: scada",
         "x": 570,
         "y": 180,
         "wires": [
@@ -6018,7 +6018,7 @@
         "z": "neat_tab_main_v3",
         "g": "deda84fb3abd4f8d",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db",
+        "name": "MySQL: scada",
         "x": 570,
         "y": 280,
         "wires": [
@@ -7011,7 +7011,7 @@
         "z": "neat_tab_main_v3",
         "g": "b26b2c322b7949af",
         "mydb": "0691c559df7ee0fb",
-        "name": "MySQL: scada_db (EVENT)",
+        "name": "MySQL: scada (EVENT)",
         "x": 2040,
         "y": 720,
         "wires": [
